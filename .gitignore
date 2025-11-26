@@ -38,6 +38,9 @@ venv.bak/
 *~
 .DS_Store
 
+# AI Tools
+.serena/
+
 # Jupyter
 .ipynb_checkpoints
 
