@@ -94,14 +94,15 @@ python cli/supatask_cli.py logs --limit 20
 ### Logs
 - `GET /logs` - Get logs (query params: log_type, start_time, end_time, limit)
 
-### MCP
-- `GET /mcp/tools` - Get available MCP tools
-- `POST /mcp/execute` - Execute MCP tool
-- `GET /mcp/sse` - SSE endpoint for MCP protocol
+### MCP (HTTP Streamable Transport)
+- `POST /mcp/` - JSON-RPC 2.0 endpoint (initialize, tools/list, tools/call, ping)
+- `GET /mcp/` - Optional SSE stream for server-initiated messages
 
 ## MCP Integration
 
-Supatask includes an MCP server for AI assistant integration. Available tools:
+Supatask includes an MCP server implementing the **HTTP Streamable Transport** (MCP spec 2025-06-18) for AI assistant integration.
+
+### Available Tools
 
 - `create_task` - Create tasks with tags
 - `read_task` - Read task details
@@ -110,7 +111,46 @@ Supatask includes an MCP server for AI assistant integration. Available tools:
 - `delete_task` - Delete tasks
 - `get_logs` - Retrieve activity/system logs
 
-Connect via the SSE endpoint at `http://localhost:8000/mcp/sse`
+### Claude Code Configuration
+
+Add to `~/.config/claude-code/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "supatask": {
+      "url": "http://localhost:8000/mcp/",
+      "transport": "http"
+    }
+  }
+}
+```
+
+### Protocol Details
+
+- **Specification**: MCP 2025-06-18
+- **Transport**: HTTP Streamable
+- **Message Format**: JSON-RPC 2.0
+- **Session Management**: Via `Mcp-Session-Id` headers
+
+### Example Usage
+
+```bash
+# Initialize connection
+curl -X POST http://localhost:8000/mcp/ \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"id":1}'
+
+# List available tools
+curl -X POST http://localhost:8000/mcp/ \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"tools/list","id":2}'
+
+# Create a task
+curl -X POST http://localhost:8000/mcp/ \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"create_task","arguments":{"title":"My Task","tags":["work"]}},"id":3}'
+```
 
 ## Data Model
 

@@ -21,7 +21,7 @@ Successfully implemented a complete Redis-based local task manager with:
 | Frontend | Vanilla JavaScript + Modern CSS |
 | CLI | Typer + Rich |
 | Deployment | Docker Compose |
-| MCP | SSE (Server-Sent Events) |
+| MCP | HTTP Streamable Transport (2025-06-18) |
 
 ### Project Structure
 
@@ -38,7 +38,14 @@ supatask/
 │   ├── routers/
 │   │   ├── tasks.py            # Task CRUD + time tracking
 │   │   ├── logs.py             # Activity/system logs
-│   │   └── mcp.py              # MCP server
+│   │   └── mcp.py              # MCP server (HTTP Streamable Transport)
+│   ├── mcp/                    # MCP module
+│   │   ├── __init__.py
+│   │   ├── jsonrpc.py          # JSON-RPC 2.0 models
+│   │   ├── handler.py          # Request handlers
+│   │   └── sessions.py         # Session management
+│   ├── tests/
+│   │   └── test_mcp_http.py    # MCP transport tests
 │   ├── services/
 │   │   ├── task_service.py     # Task business logic
 │   │   └── log_service.py      # Logging logic
@@ -192,7 +199,7 @@ pip install -r requirements.txt
 
 ### 5. MCP Server ✅
 
-Implemented complete MCP server with the following tools:
+Implemented MCP server with **HTTP Streamable Transport** (MCP spec 2025-06-18):
 
 #### Available Tools
 
@@ -203,22 +210,47 @@ Implemented complete MCP server with the following tools:
 5. **delete_task** - Delete tasks
 6. **get_logs** - Retrieve activity or system logs with filters
 
-#### Endpoints
+#### Endpoint
 
-- `GET /mcp/tools` - Get tool schema
-- `POST /mcp/execute` - Execute a tool
-- `GET /mcp/sse` - SSE endpoint for streaming
+- `POST /mcp/` - JSON-RPC 2.0 requests (initialize, tools/list, tools/call, ping)
+- `GET /mcp/` - Optional SSE stream for server-initiated messages
+
+#### Protocol Features
+
+- **JSON-RPC 2.0** message format
+- **Session management** via `Mcp-Session-Id` headers
+- **Protocol version** validation via `MCP-Protocol-Version` header
+- **CallToolResult** format for tool responses
+- **Proper error codes**: -32700 (parse), -32601 (method not found), -32602 (invalid params)
+
+#### Claude Code Configuration
+
+Add to `~/.config/claude-code/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "supatask": {
+      "url": "http://localhost:8000/mcp/",
+      "transport": "http"
+    }
+  }
+}
+```
 
 **Example Tool Execution:**
 ```bash
-POST /mcp/execute
-{
-  "tool": "list_tasks",
-  "arguments": {
-    "status": "pending",
-    "tags": ["urgent"]
-  }
-}
+curl -X POST http://localhost:8000/mcp/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "tools/call",
+    "params": {
+      "name": "list_tasks",
+      "arguments": {"status": "pending"}
+    },
+    "id": 1
+  }'
 ```
 
 ### 6. Data Persistence ✅
